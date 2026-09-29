@@ -1,0 +1,837 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>GFG Velocity Foundation｜实验时间线与当前结果</title>
+  <style>
+    :root {
+      --ink: #17252a;
+      --muted: #607277;
+      --paper: #f5f1e8;
+      --panel: #fffdf8;
+      --line: #d8d1c4;
+      --teal: #126e68;
+      --teal-soft: #dcece8;
+      --blue: #315f8c;
+      --blue-soft: #e5edf5;
+      --amber: #a96513;
+      --amber-soft: #f7ead5;
+      --red: #9d3c38;
+      --red-soft: #f5e4e1;
+      --green: #34734a;
+      --green-soft: #e3efe5;
+      --shadow: 0 18px 44px rgba(42, 54, 51, .08);
+      --radius: 18px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      --serif: "Noto Serif SC", "Songti SC", Georgia, serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 88% 5%, rgba(18, 110, 104, .12), transparent 28rem),
+        radial-gradient(circle at 3% 34%, rgba(169, 101, 19, .09), transparent 24rem),
+        var(--paper);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.72;
+    }
+
+    a { color: var(--teal); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+    a:hover { color: #084b47; }
+    code {
+      padding: .12rem .34rem;
+      border-radius: 5px;
+      color: #2f5555;
+      background: #edf1ed;
+      font-family: var(--mono);
+      font-size: .88em;
+      overflow-wrap: anywhere;
+    }
+    strong { color: #102a2c; }
+
+    .shell {
+      width: min(1420px, calc(100% - 36px));
+      margin: 0 auto;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      margin: 24px auto 18px;
+      padding: clamp(28px, 5vw, 70px);
+      border: 1px solid rgba(255,255,255,.45);
+      border-radius: 26px;
+      color: #f8fbf7;
+      background:
+        linear-gradient(120deg, rgba(5, 43, 44, .97), rgba(20, 98, 90, .93)),
+        #0d514d;
+      box-shadow: var(--shadow);
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -85px;
+      bottom: -130px;
+      width: 430px;
+      height: 430px;
+      border: 1px solid rgba(255,255,255,.13);
+      border-radius: 50%;
+      box-shadow: 0 0 0 55px rgba(255,255,255,.04), 0 0 0 110px rgba(255,255,255,.025);
+    }
+    .eyebrow {
+      margin: 0 0 10px;
+      color: #bfe0d6;
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    h1 {
+      position: relative;
+      z-index: 1;
+      max-width: 920px;
+      margin: 0;
+      font-family: var(--serif);
+      font-size: clamp(2.25rem, 6vw, 5.35rem);
+      font-weight: 700;
+      letter-spacing: -.045em;
+      line-height: 1.04;
+    }
+    .hero-lede {
+      position: relative;
+      z-index: 1;
+      max-width: 780px;
+      margin: 24px 0 0;
+      color: #dcebe6;
+      font-size: clamp(1rem, 1.8vw, 1.2rem);
+    }
+    .hero-meta {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 26px;
+    }
+    .hero-meta span {
+      padding: 7px 11px;
+      border: 1px solid rgba(255,255,255,.17);
+      border-radius: 999px;
+      color: #e7f3ef;
+      background: rgba(255,255,255,.07);
+      font-size: .8rem;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 26px;
+      align-items: start;
+      margin-bottom: 72px;
+    }
+    .nav {
+      position: sticky;
+      top: 18px;
+      padding: 17px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255,253,248,.92);
+      box-shadow: 0 10px 30px rgba(43,52,48,.05);
+      backdrop-filter: blur(12px);
+    }
+    .nav-title {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: .72rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .nav a {
+      display: block;
+      padding: 8px 9px;
+      border-radius: 8px;
+      color: #42575a;
+      font-size: .86rem;
+      text-decoration: none;
+    }
+    .nav a:hover { color: var(--teal); background: var(--teal-soft); }
+
+    main { min-width: 0; }
+    section {
+      scroll-margin-top: 24px;
+      margin-bottom: 22px;
+      padding: clamp(21px, 3.2vw, 38px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255,253,248,.96);
+      box-shadow: 0 12px 34px rgba(38, 49, 46, .045);
+    }
+    h2 {
+      margin: 0 0 12px;
+      font-family: var(--serif);
+      font-size: clamp(1.55rem, 3vw, 2.35rem);
+      line-height: 1.25;
+      letter-spacing: -.025em;
+    }
+    h3 {
+      margin: 28px 0 10px;
+      font-size: 1.1rem;
+      line-height: 1.4;
+    }
+    p { margin: 8px 0 16px; }
+    .section-kicker {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 8px;
+      color: var(--teal);
+      font-size: .76rem;
+      font-weight: 800;
+      letter-spacing: .11em;
+      text-transform: uppercase;
+    }
+    .date-pill, .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: .7rem;
+      font-weight: 800;
+      letter-spacing: .02em;
+      text-transform: none;
+    }
+    .date-pill { color: #4d6265; background: #ece8df; }
+    .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .done { color: var(--green); background: var(--green-soft); }
+    .live { color: var(--amber); background: var(--amber-soft); }
+    .caution { color: var(--red); background: var(--red-soft); }
+    .info { color: var(--blue); background: var(--blue-soft); }
+
+    .grid { display: grid; gap: 14px; }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .stat {
+      min-height: 132px;
+      padding: 18px;
+      border: 1px solid #e0dbd0;
+      border-radius: 14px;
+      background: #fbfaf6;
+    }
+    .stat-label { color: var(--muted); font-size: .78rem; font-weight: 700; }
+    .stat-value {
+      margin: 7px 0 2px;
+      color: var(--teal);
+      font-family: var(--serif);
+      font-size: clamp(1.65rem, 3.2vw, 2.6rem);
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -.04em;
+    }
+    .stat-note { color: #657578; font-size: .78rem; line-height: 1.45; }
+
+    .callout {
+      margin: 18px 0;
+      padding: 15px 18px;
+      border-left: 4px solid var(--teal);
+      border-radius: 0 10px 10px 0;
+      background: var(--teal-soft);
+    }
+    .callout.warning { border-color: var(--amber); background: var(--amber-soft); }
+    .callout.danger { border-color: var(--red); background: var(--red-soft); }
+    .callout p:last-child { margin-bottom: 0; }
+
+    .table-wrap {
+      overflow-x: auto;
+      margin: 14px 0 20px;
+      border: 1px solid #ddd7cb;
+      border-radius: 12px;
+      background: #fffefa;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .85rem;
+      font-variant-numeric: tabular-nums;
+    }
+    th, td {
+      padding: 11px 12px;
+      border-bottom: 1px solid #e8e3da;
+      text-align: right;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+    th:first-child, td:first-child { text-align: left; white-space: normal; }
+    thead th {
+      color: #4d6063;
+      background: #f3f0e9;
+      font-size: .74rem;
+      letter-spacing: .02em;
+    }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr:hover td { background: #f8faf7; }
+    .best { color: #09655e; font-weight: 850; background: #e9f4ef !important; }
+    .negative { color: var(--red); }
+    .pending-row td { color: #7d6f5d; background: #fcf7eb; }
+
+    .timeline {
+      position: relative;
+      margin: 18px 0 0 6px;
+      padding-left: 28px;
+    }
+    .timeline::before {
+      content: "";
+      position: absolute;
+      top: 8px;
+      bottom: 10px;
+      left: 6px;
+      width: 2px;
+      background: #cad8d3;
+    }
+    .event { position: relative; padding: 0 0 22px; }
+    .event:last-child { padding-bottom: 0; }
+    .event::before {
+      content: "";
+      position: absolute;
+      top: 8px;
+      left: -28px;
+      width: 12px;
+      height: 12px;
+      border: 3px solid var(--panel);
+      border-radius: 50%;
+      background: var(--teal);
+      box-shadow: 0 0 0 1px var(--teal);
+    }
+    .event-time { color: var(--teal); font-family: var(--mono); font-size: .76rem; font-weight: 700; }
+    .event-title { margin: 2px 0 3px; font-weight: 800; }
+    .event-note { margin: 0; color: #607174; font-size: .88rem; }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin: 19px 0;
+    }
+    .flow-step {
+      position: relative;
+      padding: 15px 12px;
+      border: 1px solid #d9d4c9;
+      border-radius: 11px;
+      text-align: center;
+      background: #fbfaf6;
+      font-size: .78rem;
+      font-weight: 750;
+      line-height: 1.4;
+    }
+    .flow-step:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      z-index: 2;
+      top: 50%;
+      right: -11px;
+      width: 14px;
+      color: var(--teal);
+      background: var(--panel);
+      transform: translateY(-50%);
+    }
+
+    .metric-bars { display: grid; gap: 11px; margin: 18px 0; }
+    .metric-row { display: grid; grid-template-columns: 215px minmax(150px, 1fr) 58px; gap: 10px; align-items: center; }
+    .metric-name { color: #405558; font-size: .8rem; }
+    .bar-track { height: 12px; overflow: hidden; border-radius: 999px; background: #e9e6de; }
+    .bar { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #1c857c, #6bb7a4); }
+    .bar.blue { background: linear-gradient(90deg, #3d668e, #7ba3c6); }
+    .metric-number { text-align: right; font-family: var(--mono); font-size: .78rem; }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .mini-panel { padding: 17px; border: 1px solid #dfd9ce; border-radius: 13px; background: #fbfaf6; }
+    .mini-panel h3 { margin-top: 0; }
+    ul, ol { padding-left: 1.25rem; }
+    li { margin: .35rem 0; }
+    .compact li { margin: .18rem 0; }
+
+    .source-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px 14px;
+      margin-top: 16px;
+    }
+    .source-link {
+      display: block;
+      padding: 12px 13px;
+      border: 1px solid #dfdacf;
+      border-radius: 10px;
+      color: #35595a;
+      background: #fbfaf6;
+      font-size: .8rem;
+      text-decoration: none;
+      overflow-wrap: anywhere;
+    }
+    .source-link:hover { border-color: #9fc7bd; background: var(--teal-soft); }
+    .source-link small { display: block; color: #7a8789; }
+
+    .footnote { color: #6a797b; font-size: .78rem; }
+    footer { margin: 26px 0 50px; color: #708083; text-align: center; font-size: .76rem; }
+
+    @media (max-width: 1050px) {
+      .layout { grid-template-columns: 1fr; }
+      .nav { position: static; display: flex; gap: 5px; overflow-x: auto; white-space: nowrap; }
+      .nav-title { display: none; }
+      .nav a { flex: 0 0 auto; }
+      .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .flow { grid-template-columns: 1fr; }
+      .flow-step:not(:last-child)::after { content: "↓"; top: auto; right: 50%; bottom: -14px; transform: translateX(50%); }
+    }
+    @media (max-width: 700px) {
+      .shell { width: min(100% - 18px, 1420px); }
+      .hero { margin-top: 9px; padding: 27px 22px; border-radius: 18px; }
+      .grid-3, .grid-4, .two-col, .source-list { grid-template-columns: 1fr; }
+      section { padding: 21px 16px; }
+      .metric-row { grid-template-columns: 1fr 48px; }
+      .metric-name { grid-column: 1 / -1; }
+      th, td { padding: 9px 10px; }
+    }
+    @media print {
+      body { background: #fff; font-size: 11px; }
+      .shell { width: 100%; }
+      .hero { margin: 0 0 12px; padding: 28px; box-shadow: none; }
+      .nav { display: none; }
+      .layout { display: block; }
+      section { break-inside: avoid; box-shadow: none; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="hero">
+      <p class="eyebrow">GFG · RNA Velocity · Foundation Pilot</p>
+      <h1>实验时间线与<br>当前证据总览</h1>
+      <p class="hero-lede">
+        依据目录内文档的实际写入顺序，串联代码审计、MouseBrain 基线修复、12M 预训练 pilot，
+        以及正在推进的 Set/JVP foundation v2。报告中的“当前状态”以结构化产物与运行进程为准。
+      </p>
+      <div class="hero-meta">
+        <span>快照：2026-08-31 12:44 CST</span>
+        <span>预训练语料：12,431,916 cells</span>
+        <span>下游：MouseBrain · 3,365 × 759</span>
+        <span>状态：v2 实验进行中</span>
+      </div>
+    </header>
+
+    <div class="layout">
+      <nav class="nav" aria-label="章节导航">
+        <p class="nav-title">Contents</p>
+        <a href="#snapshot">当前快照</a>
+        <a href="#chronology">文档时间线</a>
+        <a href="#baseline">基线与修复</a>
+        <a href="#pilot-plan">12M Pilot 计划</a>
+        <a href="#pilot-results">Pilot 结果</a>
+        <a href="#v2">Foundation v2</a>
+        <a href="#comparison">跨阶段对比</a>
+        <a href="#conclusions">结论与下一步</a>
+        <a href="#sources">来源与口径</a>
+      </nav>
+
+      <main>
+        <section id="snapshot">
+          <div class="section-kicker">Executive snapshot <span class="status live">实验仍在更新</span></div>
+          <h2>当前最重要的四个数字</h2>
+          <div class="grid grid-4">
+            <article class="stat">
+              <div class="stat-label">当前最佳单次 Graph CBDir</div>
+              <div class="stat-value">0.7498</div>
+              <div class="stat-note">修正后小模型 GFG，seed 0；五种子均值为 0.6204。</div>
+            </article>
+            <article class="stat">
+              <div class="stat-label">v2 Set + phase 最佳</div>
+              <div class="stat-value">0.7445</div>
+              <div class="stat-note">seed 1，严格 zero-shot；seed 0–1 均值 0.7268。</div>
+            </article>
+            <article class="stat">
+              <div class="stat-label">v2 Teacher 最均衡</div>
+              <div class="stat-value">0.7350</div>
+              <div class="stat-note">Graph CBDir；confidence 0.6853，ICCoh 0.6272。</div>
+            </article>
+            <article class="stat">
+              <div class="stat-label">Pilot 微调损失</div>
+              <div class="stat-value">−0.558</div>
+              <div class="stat-note">Denoise 模型 Graph CBDir：zero-shot 0.7080 → 微调 0.1500。</div>
+            </article>
+          </div>
+
+          <div class="callout">
+            <strong>一句话判断：</strong>预训练已经能产生强跨数据集方向信号；当前瓶颈不是“是否学到”，而是“如何在下游适配时不把它覆盖掉”。v2 的分阶段 Set/JVP 路线以约 10% 的旧 pilot cell exposure 达到 0.71–0.74 的 zero-shot Graph CBDir，但结构优势仍需 standard-attention 对照完成后才能确认。
+          </div>
+
+          <div class="two-col">
+            <div class="mini-panel">
+              <h3>已完成</h3>
+              <ul class="compact">
+                <li>旧 GFG 邻接错位、graph batch 与 CBDir 评估路径修复。</li>
+                <li>12M denoising / weak-kinetic 各 15,000 steps。</li>
+                <li>v2 Set + phase seed 0、seed 1 zero-shot。</li>
+                <li>v2 Set + teacher seed 0 zero-shot。</li>
+                <li>6 项 v2 单元测试与真实 H5AD smoke test。</li>
+              </ul>
+            </div>
+            <div class="mini-panel">
+              <h3>快照时仍在运行</h3>
+              <ul class="compact">
+                <li><code>pilot_set_phase_s2</code>：velocity stage 650 / 1000。</li>
+                <li><code>pilot_standard_phase_s0</code>：state stage 425 / 1000。</li>
+                <li>Set phase seed 3–4 尚待运行或未见产物。</li>
+                <li>standard-attention zero-shot 尚无最终结果。</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="chronology">
+          <div class="section-kicker">Document order</div>
+          <h2>按文档写入顺序重建实验脉络</h2>
+          <p>以下顺序来自文件修改时间；同一天内部继续以结构化产物的时间戳校正。它反映的是知识如何逐步形成，而不只是实验目录名。</p>
+          <div class="timeline">
+            <div class="event">
+              <div class="event-time">2026-08-26 22:02</div>
+              <div class="event-title">代码逻辑审计：定位 GFG 核心链路与正确性风险</div>
+              <p class="event-note"><a href="GFG_CODE_LOGIC.md">GFG_CODE_LOGIC.md</a> 记录双编码器、Soft-VQ、decoder JVP、ODE 与图损失；同时识别 batch/邻接错位、CBDir 键名复用和稀疏邻居索引等关键问题。</p>
+            </div>
+            <div class="event">
+              <div class="event-time">2026-08-29 22:52</div>
+              <div class="event-title">MouseBrain 基线实验汇总：从随机 batch 到 graph batch</div>
+              <p class="event-note"><a href="results/EXPERIMENT_RESULTS.md">results/EXPERIMENT_RESULTS.md</a> 汇总 8 月 28–29 日多轮运行，最终形成 graph-batch + directed alignment + 独立 graph CBDir 的可信基线。</p>
+            </div>
+            <div class="event">
+              <div class="event-time">2026-08-30 23:54</div>
+              <div class="event-title">Foundation pilot 方案：12M 人类语料与两种预训练目标</div>
+              <p class="event-note"><a href="FOUNDATION_PRETRAIN_EXPERIMENT_PLAN.md">FOUNDATION_PRETRAIN_EXPERIMENT_PLAN.md</a> 定义 denoising-first、weak kinetic 和同架构 scratch control，并明确跨物种与 split 边界。</p>
+            </div>
+            <div class="event">
+              <div class="event-time">2026-08-31 05:47</div>
+              <div class="event-title">Pilot 最终结果：发现强 zero-shot 与微调遗忘</div>
+              <p class="event-note"><a href="experiments/foundation_pilot_20260830/FINAL_RESULTS.md">FINAL_RESULTS.md</a> 给出两个 15k-step 预训练与 MouseBrain 迁移结果，确认 denoise zero-shot 0.7080，但全损失微调降至 0.1500。</p>
+            </div>
+            <div class="event">
+              <div class="event-time">2026-08-31 09:50</div>
+              <div class="event-title">中文综合总结：将瓶颈归因到适配策略</div>
+              <p class="event-note"><a href="EXPERIMENT_SUMMARY_CN.md">EXPERIMENT_SUMMARY_CN.md</a> 统一数据、模型、效率、泛化与验证证据，并提出冻结 encoder、降低学习率和渐进解冻。</p>
+            </div>
+            <div class="event">
+              <div class="event-time">2026-08-31 12:32</div>
+              <div class="event-title">Foundation v2 初始结果：Set/JVP 两阶段路线</div>
+              <p class="event-note"><a href="experiments/foundation_v2_20260831/INITIAL_RESULTS.md">INITIAL_RESULTS.md</a> 报告 Set + phase seed 0–1 与 teacher seed 0；其后日志继续更新到本报告 12:44 快照。</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="baseline">
+          <div class="section-kicker">Stage 0–1 <span class="date-pill">2026-08-26 → 08-29</span> <span class="status done">完成</span></div>
+          <h2>从代码审计到可信 MouseBrain 基线</h2>
+          <p>原始 GFG 以 <code>Mu/Ms</code> 为输入，分别编码状态与潜在速度，经共享 decoder 的 JVP 映射到观测速度，并联合重构、ODE、图平滑和方向对齐训练。真正影响实验可信度的第一步，是先修复图采样和评测实现。</p>
+
+          <div class="flow" aria-label="GFG 主流程">
+            <div class="flow-step">Mu / Ms<br>细胞表达</div>
+            <div class="flow-step">State + Velocity<br>双编码器</div>
+            <div class="flow-step">Decoder JVP<br>潜在切向 → v<sub>s</sub></div>
+            <div class="flow-step">ODE + Graph<br>联合约束</div>
+            <div class="flow-step">Confidence / ICCoh<br>Raw &amp; Graph CBDir</div>
+          </div>
+
+          <h3>修复如何改变了实验口径</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>问题</th><th>旧行为</th><th>修复后行为</th><th>影响</th></tr></thead>
+              <tbody>
+                <tr><td>batch 与邻接</td><td>shuffle 样本配连续子矩阵</td><td>按真实索引切图 / graph batch</td><td>图损失重新对应真实细胞</td></tr>
+                <tr><td>图边语义</td><td>同一邻接混用</td><td>无向 smooth + 有向 alignment</td><td>方向监督更清晰</td></tr>
+                <tr><td>kNN 读取</td><td>稀疏缺失边的 0 可能被当近邻</td><td>只读取真实非零 kNN</td><td>CBDir 绝对口径改变</td></tr>
+                <tr><td>with graph</td><td>重复读取 <code>velocity_umap</code></td><td>独立 <code>velocity_graph_umap</code></td><td>可测量 graph improvement</td></tr>
+                <tr><td>图覆盖</td><td>随机 batch 单轮约 3.78%</td><td>graph batch 单轮约 44.1%</td><td>10 轮覆盖约 98.7%</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>最终可信基线：graph batch + directed alignment，seed 0–4</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Seed</th><th>Final loss</th><th>Confidence</th><th>ICCoh</th><th>Raw CBDir</th><th>Graph CBDir</th><th>Graph Δ</th></tr></thead>
+              <tbody>
+                <tr><td>0</td><td>280.3962</td><td class="best">0.9783</td><td class="best">0.9208</td><td>0.6099</td><td>0.7498</td><td>0.1399</td></tr>
+                <tr><td>1</td><td>301.6804</td><td>0.9639</td><td>0.8584</td><td>0.6252</td><td class="best">0.7912</td><td>0.1660</td></tr>
+                <tr><td>2</td><td>295.2605</td><td>0.9589</td><td>0.8444</td><td class="negative">−0.2311</td><td>0.3416</td><td>0.5727</td></tr>
+                <tr><td>3</td><td>292.1411</td><td>0.9239</td><td>0.7103</td><td>0.0884</td><td>0.4317</td><td>0.3433</td></tr>
+                <tr><td>4</td><td>298.6156</td><td>0.9676</td><td>0.8813</td><td class="best">0.6359</td><td>0.7875</td><td>0.1516</td></tr>
+                <tr><td><strong>均值 ± SD</strong></td><td>293.6188 ± 7.3440</td><td>0.9585 ± 0.0184</td><td>0.8430 ± 0.0712</td><td>0.3457 ± 0.3553</td><td>0.6204 ± 0.1935</td><td>0.2747 ± 0.1665</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="callout warning">
+            <strong>可比性提醒：</strong>8 月 28 日早期 batch-size 实验和仅修复 shuffle 的多种子实验使用过旧 CBDir/邻居实现，不应与上表绝对值直接比较。后续 foundation 实验统一以修复后的真实 kNN 与独立 graph velocity 口径为准。
+          </div>
+        </section>
+
+        <section id="pilot-plan">
+          <div class="section-kicker">Stage 2 <span class="date-pill">2026-08-30</span> <span class="status done">方案执行完毕</span></div>
+          <h2>12M Foundation Pilot：实验设计</h2>
+          <div class="grid grid-3">
+            <article class="stat">
+              <div class="stat-label">预训练数据</div>
+              <div class="stat-value">12.43M</div>
+              <div class="stat-note">2,018 H5AD；Human；3,000 gene 轴；约 79% 脑组织。</div>
+            </article>
+            <article class="stat">
+              <div class="stat-label">Foundation pilot</div>
+              <div class="stat-value">14.62M</div>
+              <div class="stat-note">可训练参数；约为修正后原 GFG 的 9.2×。</div>
+            </article>
+            <article class="stat">
+              <div class="stat-label">MouseBrain</div>
+              <div class="stat-value">3,365</div>
+              <div class="stat-note">cells；936 原始 genes，当前预处理后 759 genes。</div>
+            </article>
+          </div>
+
+          <h3>三条对照路线</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>路线</th><th>初始化 / 预训练目标</th><th>预算</th><th>下游处理</th><th>目的</th></tr></thead>
+              <tbody>
+                <tr><td>Large scratch</td><td>随机初始化</td><td>MouseBrain 10 epochs</td><td>全损失训练</td><td>控制模型容量</td></tr>
+                <tr><td>Denoising-first</td><td>masked reconstruction</td><td>15,000 steps</td><td>zero-shot + 全损失微调</td><td>验证常规自监督迁移</td></tr>
+                <tr><td>Weak-kinetic</td><td>denoising + ODE ramp</td><td>15,000 steps</td><td>zero-shot + 全损失微调</td><td>测试提前加入动力学是否有益</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>模型保留 state encoder、velocity encoder 和 decoder JVP。Soft-VQ 在启动 smoke test 的 3–4 steps 内坍缩至 perplexity≈1，因此三条正式路线全部旁路 VQ，避免离散码本成为混杂因素。</p>
+          <div class="callout warning">
+            <strong>设计边界：</strong>两种预训练是 step-matched，而非 cell-exposure-matched；当前 split 是 accession numeric-block proxy，不是严格 study/donor split。人类 3k 到小鼠的迁移依赖跨基因共享参数，不等价于严格 ortholog benchmark。
+          </div>
+        </section>
+
+        <section id="pilot-results">
+          <div class="section-kicker">Stage 3 <span class="date-pill">2026-08-31 05:47–09:50</span> <span class="status done">完成并校验</span></div>
+          <h2>12M Pilot：强 zero-shot，微调反而破坏方向</h2>
+
+          <h3>预训练效率</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Variant</th><th>Steps</th><th>Cells seen</th><th>Batch</th><th>耗时</th><th>Peak GiB</th><th>Loss EMA</th><th>Cells/s</th></tr></thead>
+              <tbody>
+                <tr><td>Denoising-first</td><td>15,000</td><td>7.68M</td><td>512</td><td>5.66 h</td><td>76.40</td><td>3.5424</td><td class="best">376.8</td></tr>
+                <tr><td>Weak-kinetic</td><td>15,000</td><td>2.88M</td><td>192</td><td>5.28 h</td><td>81.46</td><td class="best">3.5254</td><td>151.5</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>MouseBrain 结果：zero-shot 与 fine-tune 分开看</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>模型 / 阶段</th><th>Confidence</th><th>ICCoh</th><th>Raw CBDir</th><th>Graph CBDir</th><th>Graph Δ</th></tr></thead>
+              <tbody>
+                <tr><td>修正 GFG，seed 0</td><td class="best">0.9783</td><td>0.9208</td><td class="best">0.6099</td><td class="best">0.7498</td><td>0.1399</td></tr>
+                <tr><td>修正 GFG，seed 0–4 均值</td><td>0.9585</td><td>0.8430</td><td>0.3457</td><td>0.6204</td><td>0.2747</td></tr>
+                <tr><td>Large scratch，fine-tuned</td><td>0.5610</td><td class="best">0.9960</td><td class="negative">−0.4718</td><td>0.1496</td><td class="best">0.6214</td></tr>
+                <tr><td>Denoising，zero-shot</td><td>0.6587</td><td>0.6267</td><td>0.3647</td><td class="best">0.7080</td><td>0.3433</td></tr>
+                <tr><td>Denoising，fine-tuned</td><td>0.6780</td><td>0.9826</td><td class="negative">−0.4364</td><td>0.1500</td><td>0.5864</td></tr>
+                <tr><td>Weak-kinetic，zero-shot</td><td>0.5202</td><td>0.5507</td><td class="negative">−0.1160</td><td>0.3928</td><td>0.5088</td></tr>
+                <tr><td>Weak-kinetic，fine-tuned</td><td>0.5919</td><td>0.9928</td><td class="negative">−0.3925</td><td>0.1905</td><td>0.5830</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="metric-bars" aria-label="微调前后 Graph CBDir">
+            <div class="metric-row"><div class="metric-name">Denoising · zero-shot</div><div class="bar-track"><div class="bar" style="width: 94.4%"></div></div><div class="metric-number">0.7080</div></div>
+            <div class="metric-row"><div class="metric-name">Denoising · fine-tuned</div><div class="bar-track"><div class="bar blue" style="width: 20.0%"></div></div><div class="metric-number">0.1500</div></div>
+            <div class="metric-row"><div class="metric-name">Weak-kinetic · zero-shot</div><div class="bar-track"><div class="bar" style="width: 52.4%"></div></div><div class="metric-number">0.3928</div></div>
+            <div class="metric-row"><div class="metric-name">Weak-kinetic · fine-tuned</div><div class="bar-track"><div class="bar blue" style="width: 25.4%"></div></div><div class="metric-number">0.1905</div></div>
+          </div>
+
+          <div class="callout danger">
+            <strong>核心负结果也是最重要的机制线索：</strong>Denoising 的 Graph CBDir 微调后下降 0.5580，weak-kinetic 下降 0.2023。旧 GFG 的固定高权重组合（ODE=20、smooth=300、align=300）对大模型很可能造成 catastrophic forgetting。与此同时，大模型可产生 ICCoh≈1 但方向错误的近常量平滑解，因此不能用 ICCoh 单独选模。
+          </div>
+
+          <p class="footnote">完整性检查：2 个预训练 checkpoint 与 3 个 MouseBrain checkpoint 均可 strict load；保存的 H5AD 为 3,365 × 759，关键速度数组无 NaN/Inf；独立重算指标与 JSON 完全一致；SHA-256 清单位于 pilot 目录。</p>
+        </section>
+
+        <section id="v2">
+          <div class="section-kicker">Stage 4 <span class="date-pill">2026-08-31 11:44 → 12:44</span> <span class="status live">进行中</span></div>
+          <h2>Foundation v2：Set/JVP 两阶段预训练</h2>
+          <p>v2 直接响应 pilot 的遗忘与动力学退化问题：保留 latent tangent → decoder JVP → spliced velocity 的核心，但取消逐 cell×gene ODE；将 state 与 velocity 训练解耦，并尝试不依赖 gene-specific 参数的 permutation-equivariant Set Transformer。</p>
+
+          <div class="flow" aria-label="v2 两阶段训练流程">
+            <div class="flow-step">Stage A<br>s-only + 30% mask</div>
+            <div class="flow-step">State encoder<br>+ spliced decoder</div>
+            <div class="flow-step">冻结 state<br>与 decoder</div>
+            <div class="flow-step">Stage B<br>(u,s) velocity</div>
+            <div class="flow-step">Decoder JVP<br>MouseBrain zero-shot</div>
+          </div>
+
+          <div class="two-col">
+            <div class="mini-panel">
+              <h3>Set 模型</h3>
+              <ul class="compact">
+                <li>10,573,442 参数；<code>d_model=384</code>。</li>
+                <li>两层 ISAB，128 inducing points，8 heads。</li>
+                <li>Stage A/B 各 1,000 updates，batch 384。</li>
+                <li>无 gene-specific embedding，可跨 3,000 → 759 genes strict load。</li>
+              </ul>
+            </div>
+            <div class="mini-panel">
+              <h3>两种速度监督</h3>
+              <ul class="compact">
+                <li><strong>Phase：</strong>batch 内按基因共享的 u~s 线性趋势 residual。</li>
+                <li><strong>Teacher：</strong>蒸馏旧 denoising-first 的 spliced velocity 方向。</li>
+                <li>两者均优化 cosine，并以极小 collapse penalty 防止速度幅度退化。</li>
+              </ul>
+            </div>
+          </div>
+
+          <h3>已完成的 MouseBrain zero-shot</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>模型</th><th>Seed</th><th>Confidence</th><th>ICCoh</th><th>Raw CBDir</th><th>Graph CBDir</th><th>Graph Δ</th></tr></thead>
+              <tbody>
+                <tr><td>Direct phase residual（无网络）</td><td>0</td><td>0.1980</td><td>0.1241</td><td class="negative">−0.2884</td><td>0.0472</td><td>0.3356</td></tr>
+                <tr><td>Previous denoising-first</td><td>0</td><td>0.6587</td><td>0.6267</td><td>0.3647</td><td>0.7080</td><td>0.3433</td></tr>
+                <tr><td>Set + phase</td><td>0</td><td>0.4217</td><td>0.3885</td><td>0.4650</td><td>0.7091</td><td>0.2442</td></tr>
+                <tr><td>Set + phase</td><td>1</td><td>0.4169</td><td>0.3812</td><td class="best">0.4792</td><td class="best">0.7445</td><td>0.2654</td></tr>
+                <tr><td><strong>Set + phase 均值</strong></td><td>0–1</td><td>0.4193</td><td>0.3848</td><td>0.4721</td><td>0.7268</td><td>0.2548</td></tr>
+                <tr><td>Set + teacher distillation</td><td>0</td><td class="best">0.6853</td><td class="best">0.6272</td><td>0.4255</td><td>0.7350</td><td class="best">0.3096</td></tr>
+                <tr class="pending-row"><td>Set + phase</td><td>2</td><td colspan="5">运行中；12:44 快照为 velocity step 650 / 1000</td></tr>
+                <tr class="pending-row"><td>Standard Transformer + phase</td><td>0</td><td colspan="5">运行中；12:44 快照为 state step 425 / 1000</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>效率与当前解释</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>模型 / 目标</th><th>Batch</th><th>State cells</th><th>Velocity cells</th><th>耗时</th><th>Peak GiB</th></tr></thead>
+              <tbody>
+                <tr><td>Set + phase seed 0</td><td>384</td><td>384k</td><td>384k</td><td>19.36 min</td><td>61.86</td></tr>
+                <tr><td>Set + phase seed 1</td><td>384</td><td>384k</td><td>384k</td><td>19.36 min</td><td>61.86</td></tr>
+                <tr><td>Set + teacher seed 0</td><td>384</td><td>384k</td><td>384k</td><td>32.85 min</td><td>61.93</td></tr>
+                <tr><td>旧 Denoising-first</td><td>512</td><td>—</td><td>7.68M</td><td>5.66 h</td><td>76.40</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout">
+            Phase residual 直接用于 MouseBrain 仅得 0.0472，但经人类多数据集上的共享上下文模型学习后达到 0.7091–0.7445，说明网络并非简单复刻 MouseBrain 上的局部 phase target。Teacher 路线则在方向与 confidence/ICCoh 之间更均衡。
+          </div>
+          <div class="callout warning">
+            <strong>尚不能下的结论：</strong>standard-attention 对照尚未完成，因此不能把当前提升因果归因于 Set Transformer；Set phase 也只有两个已评估 seed。当前结果是强 pilot 证据，不是最终 foundation-model 泛化结论。
+          </div>
+        </section>
+
+        <section id="comparison">
+          <div class="section-kicker">Cross-stage view</div>
+          <h2>跨阶段比较：方向正确性优先</h2>
+          <p>为避免把不同训练阶段混在一起，下图只选择可以用修复后口径比较的代表性结果，并将 Graph CBDir 作为主要方向指标。</p>
+          <div class="metric-bars" aria-label="代表模型 Graph CBDir 比较">
+            <div class="metric-row"><div class="metric-name">修正 GFG · seed 0</div><div class="bar-track"><div class="bar" style="width: 99.97%"></div></div><div class="metric-number">0.7498</div></div>
+            <div class="metric-row"><div class="metric-name">v2 Set + phase · seed 1</div><div class="bar-track"><div class="bar" style="width: 99.27%"></div></div><div class="metric-number">0.7445</div></div>
+            <div class="metric-row"><div class="metric-name">v2 Set + teacher · seed 0</div><div class="bar-track"><div class="bar" style="width: 98.03%"></div></div><div class="metric-number">0.7350</div></div>
+            <div class="metric-row"><div class="metric-name">v2 Set + phase · mean s0–1</div><div class="bar-track"><div class="bar" style="width: 96.93%"></div></div><div class="metric-number">0.7268</div></div>
+            <div class="metric-row"><div class="metric-name">Pilot denoising · zero-shot</div><div class="bar-track"><div class="bar blue" style="width: 94.42%"></div></div><div class="metric-number">0.7080</div></div>
+            <div class="metric-row"><div class="metric-name">修正 GFG · mean s0–4</div><div class="bar-track"><div class="bar blue" style="width: 82.74%"></div></div><div class="metric-number">0.6204</div></div>
+            <div class="metric-row"><div class="metric-name">Pilot weak kinetic · fine-tuned</div><div class="bar-track"><div class="bar blue" style="width: 25.41%"></div></div><div class="metric-number">0.1905</div></div>
+            <div class="metric-row"><div class="metric-name">Pilot large scratch · fine-tuned</div><div class="bar-track"><div class="bar blue" style="width: 19.95%"></div></div><div class="metric-number">0.1496</div></div>
+          </div>
+
+          <div class="two-col">
+            <div class="mini-panel">
+              <h3>证据支持</h3>
+              <ol class="compact">
+                <li>跨数据集预训练能够学习可迁移的 velocity 方向。</li>
+                <li>纯 denoising 比当前弱 ODE 预训练更有成本效益。</li>
+                <li>state/velocity 分阶段与冻结机制值得继续推进。</li>
+                <li>选模必须联合 Raw/Graph CBDir、confidence、速度幅度和 ICCoh。</li>
+              </ol>
+            </div>
+            <div class="mini-panel">
+              <h3>证据尚不支持</h3>
+              <ol class="compact">
+                <li>参数增大本身会改善 RNA velocity。</li>
+                <li>高 ICCoh 等价于生物方向正确。</li>
+                <li>当前 Set 结构优于同参数 standard attention。</li>
+                <li>已达到跨组织、跨物种的通用 foundation model。</li>
+              </ol>
+            </div>
+          </div>
+        </section>
+
+        <section id="conclusions">
+          <div class="section-kicker">Decision log</div>
+          <h2>当前结论与建议的实验顺序</h2>
+          <ol>
+            <li><strong>先完成正在运行的对照。</strong>补齐 Set phase seed 2–4 与 standard-attention seed 0，再更新结构结论。</li>
+            <li><strong>保留 denoising 与 v2 teacher/phase 三类 checkpoint。</strong>前者是旧路线最强 zero-shot，后两者分别代表均衡性与 raw direction。</li>
+            <li><strong>测试低破坏适配。</strong>依次比较 zero-shot、head-only、gradual unfreeze、full model；学习率降低，并对图损失归一化与 ramp。</li>
+            <li><strong>以多种子 Graph CBDir 为主要决策量。</strong>同时报告 velocity magnitude/variance、confidence、ICCoh 与失败率，防止近常量平滑解。</li>
+            <li><strong>再做动力学重构。</strong>将 cell×gene 独立闭式参数改为 gene-level 或 hierarchical shared kinetics；先做 data/compute-matched 消融。</li>
+            <li><strong>最后扩大泛化范围。</strong>严格 study/donor split、跨组织外部集和 ortholog-aware 人鼠映射应先于更大模型或全 36,601-gene dense 架构。</li>
+          </ol>
+          <div class="callout">
+            <strong>推荐的近期判定门槛：</strong>如果 Set/standard 对照在至少 3 个 seed 上仍能稳定达到 Graph CBDir ≥ 0.70，并且适配后不低于 zero-shot，则再进入更大数据预算与跨组织验证；否则优先修复目标函数和适配策略，而非扩容。
+          </div>
+        </section>
+
+        <section id="sources">
+          <div class="section-kicker">Provenance</div>
+          <h2>数据来源、指标口径与可复现性</h2>
+
+          <h3>核心指标</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>指标</th><th>本报告中的含义</th><th>主要风险</th></tr></thead>
+              <tbody>
+                <tr><td>Velocity confidence</td><td>速度与局部邻域方向的一致性</td><td>高值不保证 lineage 方向正确</td></tr>
+                <tr><td>ICCoh</td><td>当前实现主要衡量 cluster 内速度一致性</td><td>近常量速度可能得到极高分</td></tr>
+                <tr><td>Raw CBDir</td><td>原始 velocity UMAP 与已知 cluster 转移方向的余弦一致性</td><td>依赖已知边与局部邻居定义</td></tr>
+                <tr><td>Graph CBDir</td><td>velocity graph 投影后的独立方向评分</td><td>必须使用修复后的独立 graph velocity 键</td></tr>
+                <tr><td>Graph Δ</td><td>Graph CBDir − Raw CBDir</td><td>原始方向很差时也可能显得很大</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>本报告直接引用的文件</h3>
+          <div class="source-list">
+            <a class="source-link" href="GFG_CODE_LOGIC.md">GFG_CODE_LOGIC.md<small>代码结构、损失、评测与静态风险</small></a>
+            <a class="source-link" href="results/EXPERIMENT_RESULTS.md">results/EXPERIMENT_RESULTS.md<small>MouseBrain 多轮基线与 graph 修复结果</small></a>
+            <a class="source-link" href="FOUNDATION_PRETRAIN_EXPERIMENT_PLAN.md">FOUNDATION_PRETRAIN_EXPERIMENT_PLAN.md<small>12M pilot 目标、边界与对照设计</small></a>
+            <a class="source-link" href="experiments/foundation_pilot_20260830/FINAL_RESULTS.md">pilot / FINAL_RESULTS.md<small>15k-step 预训练与下游最终指标</small></a>
+            <a class="source-link" href="EXPERIMENT_SUMMARY_CN.md">EXPERIMENT_SUMMARY_CN.md<small>Pilot 中文综合结论与验证</small></a>
+            <a class="source-link" href="experiments/foundation_v2_20260831/INITIAL_RESULTS.md">v2 / INITIAL_RESULTS.md<small>Set/JVP 设计与初始结果</small></a>
+            <a class="source-link" href="experiments/foundation_pilot_20260830/mousebrain_comparison.csv">pilot / mousebrain_comparison.csv<small>Pilot 机器可读对比表</small></a>
+            <a class="source-link" href="results/mousebrain_graphbatch_directed_v1_summary.csv">graphbatch summary.csv<small>修正后 GFG 多随机种子汇总</small></a>
+            <a class="source-link" href="experiments/foundation_v2_20260831/pilot_set_s0_zero_shot/zero_shot_summary.json">v2 Set phase seed 0 JSON<small>当前 zero-shot 结构化指标</small></a>
+            <a class="source-link" href="experiments/foundation_v2_20260831/pilot_set_phase_s1_zero_shot/zero_shot_summary.json">v2 Set phase seed 1 JSON<small>当前最佳 v2 Graph CBDir</small></a>
+            <a class="source-link" href="experiments/foundation_v2_20260831/pilot_set_teacher_s0_zero_shot/zero_shot_summary.json">v2 teacher seed 0 JSON<small>当前最均衡 v2 结果</small></a>
+            <a class="source-link" href="experiments/foundation_v2_20260831/mousebrain_phase_baseline/phase_baseline_summary.json">phase baseline JSON<small>无网络 phase residual 对照</small></a>
+          </div>
+
+          <div class="callout warning">
+            本 HTML 是静态快照，不会自动跟随正在运行的 JSONL 更新。v2 seed 2 与 standard 对照完成后，应以新生成的 <code>pretrain_summary.json</code> 和 <code>zero_shot_summary.json</code> 替换“运行中”行并重新计算多种子统计。
+          </div>
+          <p class="footnote">数值默认保留 4 位小数。负号统一使用排版负号“−”。“最佳”高亮仅用于同一局部表格，不代表跨实验设计的显著性结论。</p>
+        </section>
+      </main>
+    </div>
+
+    <footer>
+      GFG Velocity Foundation · Offline experiment report · Generated from local documentation and structured artifacts
+    </footer>
+  </div>
+</body>
+</html>

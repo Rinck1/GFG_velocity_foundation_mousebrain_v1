@@ -1,0 +1,16 @@
+# 大文件与实验产物 (21GB experiments/ 不进 git)
+experiments/
+results/
+checkpoint/
+checkpoints/
+__pycache__/
+*.pyc
+*.pt
+*.pth
+*.npy
+*.npz
+*.h5ad
+*.log
+*.egg-info/
+.venv/
+nohup.out
