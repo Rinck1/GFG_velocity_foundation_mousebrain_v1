@@ -83,6 +83,9 @@ class GradNormBalancer:
 # ---------------- DDP ----------------
 def ddp_init():
     if "RANK" in os.environ and int(os.environ["WORLD_SIZE"]) > 1:
+        if not torch.cuda.is_available():
+            raise RuntimeError("WORLD_SIZE>1 requires CUDA")
+        torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
         dist.init_process_group("nccl")
         return int(os.environ["RANK"]), int(os.environ["LOCAL_RANK"]), int(os.environ["WORLD_SIZE"])
     return 0, 0, 1
@@ -98,23 +101,37 @@ def log(*a):
 
 
 # ---------------- checkpoint (规格书七) ----------------
-def save_ckpt(path, model, opt, args, genes, gene_names, splits_meta, stats, rng_state):
+def save_ckpt(path, model, opt, args, genes, gene_names, splits_meta, stats,
+              rng_state=None, sched=None, stage=None, epoch=-1, gstep=0):
     raw = model.module if hasattr(model, "module") else model
+    if rng_state is None:
+        rng_state = {
+            "torch": torch.get_rng_state(),
+            "cuda": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
+            "numpy": np.random.get_state(),
+        }
     payload = {
+        "schema_version": 2,
         "model": raw.state_dict(),
         "optimizer": opt.state_dict(),
+        "scheduler": sched.state_dict() if sched is not None else None,
+        "stage": stage,
+        "epoch": int(epoch),
+        "gstep": int(gstep),
+        "args": vars(args),
         "config": {**vars(args), "spec": asdict_safe(raw.spec)},
         "genes": genes, "gene_names": gene_names,
         "splits_manifest": splits_meta,
         "norm_stats": {k: v for k, v in stats.items()},
         "codebook_ema_state": {
-            name: dict(cluster_n=mod._cluster_n, embed_sum=mod._embed_sum,
-                       usage_ema=mod.usage_ema)
+            name: dict(
+                cluster_n=getattr(mod, "_cluster_n", None),
+                embed_sum=getattr(mod, "_embed_sum", None),
+                usage_ema=mod.usage_ema,
+            )
             for name, mod in raw.named_modules() if isinstance(mod, SoftVQ)
         },
-        "rng": {"torch": torch.get_rng_state(),
-                "cuda": torch.cuda.get_rng_state_all(),
-                "numpy": np.random.get_state()},
+        "rng": rng_state,
         "code_hash": code_hash(),
     }
     torch.save(payload, path)
@@ -351,8 +368,10 @@ def main():
     ap.add_argument("--epochs-a", type=int, default=20)
     ap.add_argument("--epochs-b", type=int, default=20)
     ap.add_argument("--epochs-c", type=int, default=0)
-    ap.add_argument("--batch", type=int, default=64)
-    ap.add_argument("--block", type=int, default=64)
+    ap.add_argument("--batch", type=int, default=None,
+                    help="训练 batch 行数；未指定时使用 --block（旧接口）")
+    ap.add_argument("--block", type=int, default=64,
+                    help="兼容旧接口的 batch/block 行数")
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--lr-state-decay", type=float, default=0.1, help="Stage B 状态流 lr 折扣")
     ap.add_argument("--seed", type=int, default=42)
@@ -361,11 +380,12 @@ def main():
     ap.add_argument("--scvelo-teacher", action="store_true",
                     help="scVelo 仅作 weak teacher, 记录 teacher_agreement")
     args = ap.parse_args()
+    effective_batch = int(args.batch if args.batch is not None else args.block)
+    if effective_batch <= 0:
+        raise ValueError("batch/block must be positive")
+    args.effective_batch = effective_batch
 
-    RANK, LOCAL_RANK, WORLD = (int(os.environ["RANK"]), int(os.environ["LOCAL_RANK"]),
-                               int(os.environ["WORLD_SIZE"])) if "RANK" in os.environ else (0, 0, 1)
-    if WORLD > 1:
-        dist.init_process_group("nccl")
+    RANK, LOCAL_RANK, WORLD = ddp_init()
     if WORLD > 1 and not torch.cuda.is_available():
         raise RuntimeError("DDP training requires CUDA/NCCL")
     DEV = f"cuda:{LOCAL_RANK}" if torch.cuda.is_available() else "cpu"
@@ -375,6 +395,7 @@ def main():
     torch.manual_seed(args.seed); np.random.seed(args.seed)
     import random as _r
     _r.seed(args.seed + RANK)
+    organ_of = {}
     if args.moments_dir:
         mf = json.load(open(os.path.join(args.moments_dir, "manifest.json")))
         tr = [f"/data/dataset/Velocyto/{x}.h5ad" for x in mf["train"]]
@@ -414,7 +435,8 @@ def main():
             log("warning: small corpus; donor validation/test estimates will be noisy")
         aud = audit_vocab(all_files[:200])
         log(f"vocab variants (前200文件): {aud['n_variants']} 种 → union 词表")
-        tr, va, te = donor_split(all_files, seed=args.seed)
+        groups = [organ_of.get(p, "unknown") for p in all_files] if organ_of else None
+        tr, va, te = donor_split(all_files, seed=args.seed, groups=groups)
         log(f"donor split: train={len(tr)} val={len(va)} test={len(te)}")
         cache = os.path.join(args.out, "vocab_stats.npz")
         tr_stats = _r.sample(tr, min(args.stats_files, len(tr)))
@@ -452,21 +474,25 @@ def main():
                                  "vq_s", "vq_v"])
     start_epoch = 0
     resume_stage_idx = 0
+    gstep = 0
     stages_order = ["state", "velocity", "joint"]
     if args.resume:
         ck = torch.load(args.resume, map_location="cpu", weights_only=False)
         raw.load_state_dict(ck["model"])
         opt.load_state_dict(ck["optimizer"])
+        if ck.get("scheduler") is not None:
+            sched.load_state_dict(ck["scheduler"])
         start_epoch = int(ck.get("epoch", -1)) + 1
+        gstep = int(ck.get("gstep", 0))
         resume_stage_idx = stages_order.index(ck.get("stage", "state"))
         log(f"resumed {args.resume}: stage={ck.get('stage')} ep={start_epoch}")
 
     os.makedirs(args.out, exist_ok=True)
     metrics_f = open(os.path.join(args.out, "metrics.jsonl"), "a") if MAIN else None
-    gstep = 0
 
     stage_list = [("state", args.epochs_a), ("velocity", args.epochs_b),
                   ("joint", args.epochs_c)]
+    completed_stage, completed_epoch = None, -1
     for si_, (stage, epochs) in enumerate(stage_list):
         if epochs <= 0 or si_ < resume_stage_idx:
             continue
@@ -478,12 +504,12 @@ def main():
             # continue updating in frozen streams.
             raw.set_stage(stage)
             streams = [MomentsStream(tr, gene_names, u_mu, u_sd, s_mu, s_sd,
-                             args.moments_dir, block=args.block, shuffle=True,
+                             args.moments_dir, block=effective_batch, shuffle=True,
                              seed=args.seed + ep * 100, rank=RANK,
                              world_size=WORLD)
                       if args.moments_dir else
                       BlockStream(Split("train", tr, gene_names, u_mu, u_sd, s_mu, s_sd, fh),
-                                  block=args.block, shuffle=True,
+                                  block=effective_batch, shuffle=True,
                                   seed=args.seed + ep * 100, rank=RANK,
                                   world_size=WORLD)]
             it = iter(streams[0])
@@ -532,24 +558,36 @@ def main():
                           f"w={ {k: round(v,2) for k,v in balancer.weights.items()} } "
                           f"{time.time()-t0:.0f}s", flush=True)
             sched.step()
+            completed_stage, completed_epoch = stage, ep
+            if WORLD > 1:
+                dist.barrier()
             if MAIN and metrics_f:
                 rec = {k: v / max(n_steps, 1) for k, v in run.items()}
                 rec.update(stage=stage, epoch=ep, gstep=gstep, steps=n_steps)
                 metrics_f.write(json.dumps(rec) + "\n"); metrics_f.flush()
-                torch.save({"model": raw.state_dict(), "optimizer": opt.state_dict(),
-                            "epoch": ep, "stage": stage, "args": vars(args),
-                            "gene_names": gene_names, "genes_idx": genes,
-                            "splits_manifest": splits_meta, "norm_stats": stats},
-                           os.path.join(args.out, f"{stage}_last.pt"))
+                save_ckpt(
+                    os.path.join(args.out, f"{stage}_last.pt"), model, opt, args,
+                    genes, gene_names, splits_meta, stats, sched=sched,
+                    stage=stage, epoch=ep, gstep=gstep,
+                )
+            if WORLD > 1:
+                dist.barrier()
         # A resumed stage only consumes start_epoch once; later stages start at
         # their own epoch zero.
         start_epoch = 0
     if MAIN:
-        torch.save({"model": raw.state_dict(), "args": vars(args),
-                    "gene_names": gene_names, "genes_idx": genes,
-                    "splits_manifest": splits_meta, "norm_stats": stats},
-                   os.path.join(args.out, "final.pt"))
+        save_ckpt(
+            os.path.join(args.out, "final.pt"), model, opt, args, genes,
+            gene_names, splits_meta, stats, sched=sched,
+            stage=completed_stage or "state", epoch=completed_epoch,
+            gstep=gstep,
+        )
+        if metrics_f:
+            metrics_f.close()
         log("DONE")
+    if dist.is_initialized():
+        dist.barrier()
+        dist.destroy_process_group()
 
 
 if __name__ == "__main__":

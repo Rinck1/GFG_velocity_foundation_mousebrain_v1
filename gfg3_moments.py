@@ -39,7 +39,7 @@ def build_one(args):
         # PCA-30 (子样本 ≤40k 拟合, 对 s)
         rng = np.random.default_rng(0)
         sub = rng.choice(n, min(n, 40000), replace=False)
-        pca = PCA(n_components=min(30, n - 2), random_state=0).fit(s_log[sub])
+        pca = PCA(n_components=min(30, n - 2, s_log.shape[1]), random_state=0).fit(s_log[sub])
         Z = pca.transform(s_log)
         nn = NearestNeighbors(n_neighbors=min(21, n)).fit(Z).kneighbors(Z)[1][:, 1:]
         # 行归一化邻接平滑
@@ -139,6 +139,9 @@ class MomentsStream:
                 out.append((fi, r0, min(r0 + self.block, n)))
         if self.shuffle:
             rng.shuffle(out)
+        if out and self.world_size > 1:
+            target = ((len(out) + self.world_size - 1) // self.world_size) * self.world_size
+            out = out + out[: target - len(out)]
         return out[self.rank::self.world_size]
 
     def __iter__(self):
@@ -220,7 +223,9 @@ def fit_moments_stats(files, n_genes, moments_dir, block=8192, cache=None, force
                    n_genes=np.array(len(genes), dtype=np.int64),
                    requested_n_genes=np.array(n_genes, dtype=np.int64))
     if cache:
-        os.makedirs(os.path.dirname(cache), exist_ok=True)
+        cache_dir = os.path.dirname(cache)
+        if cache_dir:
+            os.makedirs(cache_dir, exist_ok=True)
         np.savez(cache, **payload)
     return (payload["gene_names"], payload["genes"], payload["u_mu"], payload["u_sd"],
             payload["s_mu"], payload["s_sd"], payload["file_hash"])

@@ -223,6 +223,9 @@ class SoftVQ(nn.Module):
                 self._embed_sum.data[dead] = self.embedding.data[dead] * (n / self.K)
         if dist.is_available() and dist.is_initialized():
             dist.broadcast(self.embedding.data, src=0)
+            if self.ema_decay is not None:
+                dist.broadcast(self._cluster_n, src=0)
+                dist.broadcast(self._embed_sum, src=0)
         self.usage_ema[dead] = 1.0 / self.K
         return n
 
@@ -352,11 +355,15 @@ class GFG3(nn.Module):
         self.decoder.requires_grad_(st)
         self.vel_tower.requires_grad_(ve)
         self._stage = stage
-        if self.use_vq and self.spec.vq_ema_decay is None:
-            # 梯度式码本: state 码本随 Stage A, velocity 码本随 Stage B
-            self.code_s.requires_grad_(st)
-            self.code_v.requires_grad_(ve)
         if self.use_vq:
+            # Gradient codebooks train their embeddings; EMA codebooks keep
+            # embeddings frozen but still have a trainable temperature.  Set
+            # both explicitly so a frozen stream cannot update log_tau.
+            self.code_s.log_tau.requires_grad_(st)
+            self.code_v.log_tau.requires_grad_(ve)
+            if self.spec.vq_ema_decay is None:
+                self.code_s.embedding.requires_grad_(st)
+                self.code_v.embedding.requires_grad_(ve)
             # ``model.train()`` is called at the start of every epoch and
             # would otherwise reactivate usage/EMA updates in the frozen
             # stream.  Keep codebook mode aligned with the stage as well.

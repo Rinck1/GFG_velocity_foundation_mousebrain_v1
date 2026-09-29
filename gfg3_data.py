@@ -70,9 +70,32 @@ def audit_vocab(paths: list[str]) -> dict:
             "n_variants": len(seen), "ref_vocab": ref}
 
 
-def donor_split(paths: list[str], ratios=(0.9, 0.05, 0.05), seed: int = 1234):
-    """文件级 (=donor/sample 级) 划分, 同一 source_sample 的细胞不跨集。"""
+def donor_split(paths: list[str], ratios=(0.9, 0.05, 0.05), seed: int = 1234,
+                groups: list[str] | None = None):
+    """文件级 (=donor/sample 级) 划分, 同一 source_sample 的细胞不跨集.
+
+    When ``groups`` is supplied (for example organ), allocation is performed
+    independently inside each group so a large blood corpus cannot consume the
+    entire validation/test split of a multi-organ run.
+    """
     rng = np.random.default_rng(seed)
+    if groups is not None:
+        if len(groups) != len(paths):
+            raise ValueError("groups must have one entry per path")
+        buckets = {}
+        for i, group in enumerate(groups):
+            buckets.setdefault(str(group), []).append(i)
+        splits = [[], [], []]
+        for group in sorted(buckets):
+            order = rng.permutation(buckets[group])
+            n = len(order)
+            n_tr = int(n * ratios[0]); n_va = int(n * ratios[1])
+            cuts = (0, n_tr, n_tr + n_va, n)
+            for j in range(3):
+                splits[j].extend(int(i) for i in order[cuts[j]:cuts[j + 1]])
+        for split in splits:
+            rng.shuffle(split)
+        return tuple([paths[i] for i in split] for split in splits)
     order = rng.permutation(len(paths))
     n = len(paths)
     n_tr = int(n * ratios[0]); n_va = int(n * ratios[1])
@@ -93,6 +116,7 @@ def fit_vocab_stats(train_paths: list[str], n_genes: int, block: int = 8192,
         valid_cache = (
             "gene_names" in z.files and "schema_version" in z.files
             and int(np.asarray(z["schema_version"]).item()) >= 2
+            and "file_hash" in z.files
             and str(np.asarray(z["file_hash"]).item()) == expected_hash
             and "n_genes" in z.files
             and int(np.asarray(z["n_genes"]).item()) == len(z["gene_names"])
@@ -125,27 +149,54 @@ def _fit(train_paths, n_genes, block=8192, cache=None, force=False):
             n = f["layers/spliced/indptr"].shape[0] - 1
             for r0 in range(0, n, block):
                 r1 = min(r0 + block, n)
-                su = _read_layers(f, r0, r1, G, column_map=source_to_union)
-                for li, X in enumerate(su):
-                    S1[li] += X.sum(0); S2[li] += (X ** 2).sum(0)
+                for li, layer_name in enumerate(("unspliced", "spliced")):
+                    first, second = _sparse_log_moments(
+                        f[f"layers/{layer_name}"], r0, r1, G, source_to_union
+                    )
+                    S1[li] += first; S2[li] += second
                 cnt += r1 - r0
     mean = S1 / max(cnt, 1); var = np.maximum(S2 / max(cnt, 1) - mean ** 2, 0)
-    order = np.argsort(-var[0])
-    order = [i for i in order if mean[0][i] > 0][:n_genes]
+    # Use spliced variability for the panel; keep u/s statistics in the same
+    # explicit order as _read_layers: row 0 = unspliced, row 1 = spliced.
+    order = np.argsort(-var[1])
+    order = [i for i in order if mean[1][i] > 0][:n_genes]
     genes = np.array(sorted(order))
     fh = hashlib.md5("".join(train_paths).encode()).hexdigest()[:16]
     payload = dict(genes=genes, gene_names=vocab[genes],
-                   u_mu=mean[1][genes], u_sd=np.sqrt(np.maximum(var[1][genes], 1e-8)),
-                   s_mu=mean[0][genes], s_sd=np.sqrt(np.maximum(var[0][genes], 1e-8)),
+                   u_mu=mean[0][genes], u_sd=np.sqrt(np.maximum(var[0][genes], 1e-8)),
+                   s_mu=mean[1][genes], s_sd=np.sqrt(np.maximum(var[1][genes], 1e-8)),
                    file_hash=fh, vocab_size=G,
                    n_genes=np.array(len(genes), dtype=np.int64),
                    requested_n_genes=np.array(n_genes, dtype=np.int64),
                    schema_version=np.array(2, dtype=np.int64))
     if cache:
-        os.makedirs(os.path.dirname(cache), exist_ok=True)
+        cache_dir = os.path.dirname(cache)
+        if cache_dir:
+            os.makedirs(cache_dir, exist_ok=True)
         np.savez(cache, **payload)
     return (payload["gene_names"], payload["genes"], payload["u_mu"], payload["u_sd"],
             payload["s_mu"], payload["s_sd"], payload["file_hash"])
+
+
+def _sparse_log_moments(layer, r0, r1, G, column_map):
+    """Accumulate log-CP10K first/second moments without dense B×G materialization."""
+    ip = np.asarray(layer["indptr"][r0:r1 + 1], dtype=np.int64)
+    B = int(r1 - r0)
+    if B <= 0:
+        return np.zeros(G, dtype=np.float64), np.zeros(G, dtype=np.float64)
+    start, stop = int(ip[0]), int(ip[-1])
+    data = np.asarray(layer["data"][start:stop], dtype=np.float64)
+    ci = np.asarray(layer["indices"][start:stop], dtype=np.int64)
+    rowid = np.repeat(np.arange(B, dtype=np.int64), np.diff(ip))
+    if data.size == 0:
+        return np.zeros(G, dtype=np.float64), np.zeros(G, dtype=np.float64)
+    lib = np.bincount(rowid, weights=data, minlength=B)
+    lib[lib <= 0] = 1.0
+    values = np.log1p(data / lib[rowid] * 1.0e4)
+    target = np.asarray(column_map, dtype=np.int64)[ci]
+    first = np.bincount(target, weights=values, minlength=G)
+    second = np.bincount(target, weights=values * values, minlength=G)
+    return first, second
 
 
 def _read_layers(f, r0, r1, G, column_map: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
@@ -224,7 +275,12 @@ class BlockStream:
         if self.shuffle:
             rng.shuffle(out)
         # Shard complete blocks, never individual cells, so every rank sees a
-        # disjoint deterministic stream while preserving CSR read locality.
+        # deterministic stream while preserving CSR read locality.  Pad with
+        # at most world_size-1 repeated blocks so all ranks execute the same
+        # number of DDP collectives on small/odd corpora.
+        if out and self.world_size > 1:
+            target = ((len(out) + self.world_size - 1) // self.world_size) * self.world_size
+            out = out + out[: target - len(out)]
         return out[self.rank::self.world_size]
 
     def __iter__(self):
